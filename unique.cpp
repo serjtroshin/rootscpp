@@ -8,7 +8,7 @@
 #include <vector>
 #include <set>
 
-int main(int argc, char ** argv) {
+int main2(int argc, char ** argv) {
     char * pathin = argv[1];
     std::ifstream in;
     in.open(pathin);

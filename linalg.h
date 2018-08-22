@@ -13,6 +13,9 @@
 #include <armadillo>
 #include <vector>
 #include <assert.h>
+#include <deque>
+#include <set>
+
 
 #ifndef GAUSS_LINALG_H_H
 #define GAUSS_LINALG_H_H
@@ -31,6 +34,20 @@ struct gauss_meta {
         free_cols = std::vector<int>();
     };
 };
+struct cmp {
+    bool operator()(const arma::Mat<int> &a, const arma::Mat<int> &b) const {
+        assert(a.n_cols == b.n_cols);
+        assert(a.n_rows == b.n_rows);
+        for (int i = 0; i < a.n_rows * a.n_cols; ++i) {
+            if (a(i) != b(i))
+                return a(i) < b(i);
+        }
+        return 0;
+    }
+};
+
+arma::Mat<int> load(std::string file, std::string ROOT_SYS_NAME);
+std::set<arma::Mat<int>, cmp> spread(std::deque<arma::Mat<int> > & d, arma::Mat<int> & kartan);
 
 struct c_unique {
     int current;
@@ -44,6 +61,7 @@ gauss(arma::Mat<int> & mt);
 //  struct gauss_meta enhanced_gauss(arma::Mat<int> & A, bool already_gauss=false, struct gauss_meta * meta_=nullptr);
 //  arma::Mat<int> solve(arma::Mat<int> & A);
 arma::Mat<int> solve_fsr(arma::Mat<int> & A, struct gauss_meta * meta_);
+pair<std::vector<int>, int> gcd(const std::vector<int> ar);
 
 #endif //GAUSS_LINALG_H_H
 
