@@ -4,7 +4,7 @@
 #include <assert.h>
 #include "linalg.h"
 #include <fstream>
-#include<set>
+#include <set>
 #include <string>
 #include <deque>
 #include <ctime>
@@ -76,11 +76,11 @@ std::set<arma::Mat<int>, cmp> s_to_grammed_s(std::set<arma::Mat<int>, cmp> & s, 
 }
 
 
-bool f(arma::Mat<int> & mt, arma::Mat<int> * res, int rank) {
-    static int counter = 0;
+bool f(arma::Mat<int> & mt, arma::Mat<int> * res, int rank, long long of) {
+    static long long counter = 0;
     counter++;
-    if (counter % 100000 == 0)
-        std::cout << counter << '\n';
+    if (counter % 1000000 == 0)
+        std::cout << counter << " of " << of << " " << 100 * counter / of << "%\n";
     // mt.print("mt");
     struct gauss_meta meta = gauss(mt);
     if (meta.rank == rank) {
@@ -179,64 +179,130 @@ bool has_collinear(std::set<arma::Mat<int>, cmp> & final_s) {
     return 0;
 }
 
-void run(const char * ROOT_SYS_NAME) {
-    cout << "\n\n\nSTARTED " << ROOT_SYS_NAME << '\n';
-    clock_t begin = clock();
-    //arma::Mat<int> A = {{2, 4, 6, 10, 6, 4}, {5, 3, 7, 9, 8, 4}, {5, 6, 7, 9, 8, 4}, {5, 6, 7, 12, 8, 4}, {5, 6, 10, 12, 8, 4}};
+void get_data(const char * ROOT_SYS_NAME, arma::Mat<int> * kartan, arma::Mat<int> * weights, arma::Mat<int> * gramm) {
+    *kartan = load(__FILE_KARTAN__, ROOT_SYS_NAME);
+    *weights = load(__FILE_WEIGHTS__, ROOT_SYS_NAME);
+    *gramm = load(__FILE_GRAMM__, ROOT_SYS_NAME);
+    kartan->print("kartan");
+    weights->print("weights");
+    gramm->print("gramm");
+    //  assert that weight * kartan is diagonal_matrix;
+    arma::Mat<int> diag = (*weights * *kartan);
+    assert(is_diagonal(diag));
+    diag.print("kartan * weights");
+}
 
-    //auto fss = solve_fsr(A, nullptr);
-    //fss.print("ФСР");
-
-
-    auto kartan = load(__FILE_KARTAN__, ROOT_SYS_NAME);
-    auto weights = load(__FILE_WEIGHTS__, ROOT_SYS_NAME);
-    auto gramm = load(__FILE_GRAMM__, ROOT_SYS_NAME);
-    kartan.print("kartan");
-    weights.print("weights");
-    gramm.print("gramm");
-    (weights * kartan).print("kartan * weights");
+std::set<arma::Mat<int>, cmp> make_S(arma::Mat<int> & weights, arma::Mat<int> & kartan) {
     std::deque<arma::Mat<int> > d;
     for (int i = 0; i < weights.n_rows; i++)
         d.push_back(weights.row(i));
     auto s = spread(d, kartan);
-    std::cout << "S size: " << s.size() << '\n';
-    for (auto & it : s)
-        it.print("");
-    // -----------------
+    return s;
+};
 
-    // update by Авдеев Р.C.
-    // reduce S
-    s = reduce(s);
-    std::cout << "reduced size of S: " << s.size() << '\n';
-
-    // -----------------
-    /*
-    std::cout << "check: \n";
+void test_orbit_size(const char * ROOT_SYS_NAME, arma::Mat<int> & weights, arma::Mat<int> & kartan) {
     long long w_sz = weil_size[ROOT_SYS_NAME];
     for (int i = 0; i < weights.n_rows; ++i) {
         std::deque<arma::Mat<int> > d;
         d.push_back(weights.row(i));
         auto s = spread(d, kartan);
-        std::cout << "orbit size: " << s.size() << '\n';
         assert(w_sz % s.size() == 0); // Порядок элемента делит порядок группы Вейля
     }
-    */
-    // ------------------
-    int rank = kartan.n_cols - 1;
+}
 
+long long how_many_to_solve(int rank, int s_size) {
     long long to_solve = 1;
     int ff = 1;
-    for (int i = 0, j = s.size(), f = 1; i < rank; i++, j--, f *= (i + 1)) {
+    for (int i = 0, j = s_size, f = 1; i < rank; i++, j--, f *= (i + 1)) {
         to_solve *= j;
         ff = f;
     }
-    cout << "to_solve " << to_solve / ff << '\n';
+    return to_solve / ff;
+}
 
-    // !!!!!!!!!!!!
+class SequenceGen: public std::iterator<
+        std::input_iterator_tag,
+        std::vector<int> >
+{
+public:
+    SequenceGen(int _n, int _k) {
+        n = _n;
+        k = _k;
+        indexes = std::vector<int>(k);
+        for (int i = 0; i < k; i++) {
+            indexes[i] = i;
+        }
+        first = indexes.begin();
+        last = indexes.end();
+        done = false;
+    }
+    explicit operator bool() const { return !done; }
+    std::vector<int> const& operator*() const { return indexes; }
+    std::vector<int> const* operator->() const { return &indexes; }
+    SequenceGen& operator++() {
+        assert(!done);
+        if (*first != n - k) {
+            std::vector<int>::iterator mt = last;
+
+            while (*(--mt) == n-(last-mt));
+            (*mt)++;
+            while (++mt != last) *mt = *(mt-1)+1;
+            return *this;
+        }
+        done = true;
+        return *this;
+    }
+    SequenceGen operator++(int) {
+        SequenceGen const tmp(*this);
+        ++*this;
+        return tmp;
+    }
+private:
+    int n;
+    int k;
+    bool done;
+    std::vector<int> indexes;
+    std::vector<int>::iterator first, last;
+};
+
+class Saver {
+public:
+    Saver(const char * filename) {
+        fout.open(filename);
+    }
+    ~Saver() {
+        fout.close();
+    }
+    void save(const arma::Mat<int> & mat) {
+        for (int i = 0; i < mat.n_cols; ++i) {
+            fout << mat(i) << ' ';
+        }
+        fout << '\n';
+    }
+private:
+    std::ofstream fout;
+};
+
+
+void run(const char * ROOT_SYS_NAME) {
+    cout << "\n\n\nSTARTED " << ROOT_SYS_NAME << '\n';
+    clock_t begin = clock();
+
+    arma::Mat<int> kartan, weights, gramm;
+    get_data(ROOT_SYS_NAME, &kartan, &weights, &gramm);
+    auto s = make_S(weights, kartan);
+    std::cout << "S size: " << s.size() << '\n';
+    // -----------------
+    // update by Авдеев Р.C.
+    // reduce S
+    s = reduce(s);
+    std::cout << "reduced size of S: " << s.size() << '\n';
+    test_orbit_size(ROOT_SYS_NAME, weights, kartan);
+    int rank = kartan.n_cols - 1;
+    long long to_solve = how_many_to_solve(rank, s.size());
+    cout << "to_solve " << to_solve << '\n';
     // IF the basis is of prime vector -> use gramm matrix for SoLE
     s = s_to_grammed_s(s, gramm);
-    //
-
     //  iterate over all subsets of vectors from S and find ortogonal vector (one from characteristic set)
     int n = s.size();
     int r = rank;
@@ -244,91 +310,49 @@ void run(const char * ROOT_SYS_NAME) {
     arma::Mat<int> S; // column vector
     for (auto & it : sv)
         S.insert_rows(0, it);
-    //  S.print("S");
-    std::vector<int> myints(r);
-    std::vector<int>::iterator first = myints.begin(), last = myints.end();
 
-    std::generate(first, last, UniqueNumber);
-    std::set<arma::Mat<int>, cmp> final;
+    SequenceGen subsets(n, r);
     arma::Mat<int> res;
-    arma::Mat<int> sub;
-    for (auto & it : myints)
-        sub.insert_rows(0, S.row(it));
-
-    int ans = 0;
-    std::ofstream fout;
-    fout.open(ROOT_SYS_NAME);
-    //sub.print("sub before");
-    if (f(sub, &res, rank)) {
-        ans++;
-        //res.print("ans");
-        final.insert(res);
-        final.insert(-res);
-        write_to_file(res, fout);
-        res = -res;
-        write_to_file(res, fout);
-    }
-    cout << '\n';
-    while((*first) != n-r){
-        std::vector<int>::iterator mt = last;
-
-        while (*(--mt) == n-(last-mt));
-        (*mt)++;
-        while (++mt != last) *mt = *(mt-1)+1;
-        //std::for_each(first, last, myfunction);
-        //cout << '\n';
-        //  do something with next
-
-        arma::Mat<int> sub;
-        for (auto & it : myints)
-            sub.insert_rows(0, S.row(it));
-        // sub.print("sub before");
-        // cout << '\n';
-        if (f(sub, &res, rank)) {
-            // sub.print("sub");
+    std::set<arma::Mat<int>, cmp> final;
+    Saver saver(ROOT_SYS_NAME);
+    unsigned long long ans = 0;
+    arma::Mat<int> sub_view(rank, S.row(0).n_cols);
+    while (subsets) {
+        auto vec = *subsets;
+        int it_r = 0;
+        for (auto & it : vec) {
+            for (int j = 0; j < sub_view.n_cols; ++j) {
+                sub_view(it_r, j) = S(it, j);
+            }
+            it_r++;
+        }
+        if (f(sub_view, &res, rank, to_solve)) {
             ans++;
+            //res.print("ans");
             final.insert(res);
             final.insert(-res);
-            if (arma::any(arma::vectorise(sub * res.t()))) { exit(1); }
-            // res.print("res");
-            write_to_file(res, fout);
-            res = -res;
-            write_to_file(res, fout);
+            saver.save(res); res = -res; saver.save(res);
+            if (final.size() % 1000000 == 0)
+                cout << "final SIZE: " << final.size();
         }
-        //cout << "\n\n";
-
+        subsets++;
     }
     cout << "ans " <<  ans << ' ';
-
-    // final = final.t();
-    // final.print("final");
-    //auto unique = final(arma::find_unique(final));
-
     std::cout << "UNIQUE: " << final.size() << '\n';
-
-    //  for (auto & it : final) {it.print();}
-
-
     std::deque<arma::Mat<int> > final_d(final.begin(), final.end());
     auto final_s = spread(final_d, kartan);
     std::cout << "final size " << final_s.size() << '\n';
-    // проверка на коллинеарность
-    {
-        if (has_collinear(final_s))
-            exit(1);
-    }
-    //----------
-
-    //for (auto & it : final_s) {it.print();}
-    //save(final, ROOT_SYS_NAME);
-    fout.close();
     clock_t end = clock();
     double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-    cout << "TIME secs: " << elapsed_secs << '\n';
+    cout << "Finished TIME secs: " << elapsed_secs << '\n';
 }
 
+std::pair<std::pair<int, int>, int> StaticGCD::pregcd[_GCD_RANGE][_GCD_RANGE];
 int main(int argc, char ** argv)
 {
+    // config logging
+    // freopen("logging.txt", "w", stdout);
+    StaticGCD::init();
     //arma::Mat<int> gramm = {{4, -2, 0, 0}, {-2, 4, -2, 0}, {0, -2, 2, -1}, {0, 0, -1, 2}};
-    run("f4");
+    run("e6");
 }

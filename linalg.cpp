@@ -41,8 +41,31 @@ pair<int, int> mod(int a, int b)
     return r >= 0 ? std::pair<int, int>(d, r) : std::pair<int, int>(d - sgn(b), r + std::abs(b));
 }
 
+void StaticGCD::init() {
+    for (int i = 0; i < StaticGCD::_GCD_RANGE; i++) {
+        for (int j = 0; j < StaticGCD::_GCD_RANGE; j++) {
+            StaticGCD::pregcd[i][j] = {{-1, -1}, INT_MAX};
+        }
+    }
+}
+void StaticGCD::set(int a, int b, const std::pair<std::pair<int, int>, int> & val) {
+    assert(std::max(-std::min(a, b), std::max(a, b)) < StaticGCD::_GCD_RANGE/2);
+    StaticGCD::pregcd[a + StaticGCD::_GCD_RANGE / 2][b + StaticGCD::_GCD_RANGE / 2] = val;
+}
+auto StaticGCD::get(int a, int b) {
+    assert(std::max(-std::min(a, b), std::max(a, b)) < StaticGCD::_GCD_RANGE/2);
+    return StaticGCD::pregcd[a + StaticGCD::_GCD_RANGE / 2][b + StaticGCD::_GCD_RANGE / 2];
+}
+int StaticGCD::is_set(int a, int b) {
+    return StaticGCD::pregcd[a + StaticGCD::_GCD_RANGE / 2][b + StaticGCD::_GCD_RANGE / 2].second != INT_MAX;
+}
 pair<pair<int, int>, int>
 gcd2(int a, int b) {
+    int _a = a;
+    int _b = b;
+    if (StaticGCD::is_fit(a, b) && StaticGCD::is_set(a, b)) {
+        return StaticGCD::get(a, b);
+    }
     auto res = mod(a, b);
     int d = res.first;
     int m = res.second;
@@ -61,7 +84,10 @@ gcd2(int a, int b) {
         a = b;
         b = m;
     }
-    return {{c1(0,0), c1(0,1)}, a};
+    pair<pair<int, int>, int> result = {{c1(0,0), c1(0,1)}, a};
+    if (StaticGCD::is_fit(_a, _b))
+        StaticGCD::set(_a, _b, result);
+    return result;
 };
 
 pair<std::vector<int>, int> gcd(const std::vector<int> ar) {
@@ -237,3 +263,12 @@ arma::Mat<int> solve_fsr(arma::Mat<int> & A, struct gauss_meta * meta_=nullptr) 
     return fund_sys;
 }
 
+bool is_diagonal(arma::Mat<int> & A) {
+    for (int i = 0; i < A.n_rows; i++) {
+        for (int j = 0; j < A.n_cols; j++) {
+            if (i != j && A(i, j))
+                return 0;
+        }
+    }
+    return 1;
+}

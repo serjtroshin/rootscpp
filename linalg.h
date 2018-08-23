@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <deque>
 #include <set>
+#include <algorithm>
 
 
 #ifndef GAUSS_LINALG_H_H
@@ -23,6 +24,23 @@
 using std::pair;
 using std::cout;
 
+
+class StaticGCD {
+public:
+    StaticGCD() {}
+    static void init();
+    static void set(int a, int b, const std::pair<std::pair<int, int>, int> & val);
+    static auto get(int a, int b);
+    static int is_set(int a, int b);
+    static const int _GCD_RANGE = 1000;
+    static bool is_fit(int a, int b) {
+        return std::min(a, b) > -_GCD_RANGE / 2 && std::max(a, b) < _GCD_RANGE / 2;
+    }
+    static std::pair<std::pair<int, int>, int> pregcd[_GCD_RANGE][_GCD_RANGE];
+};
+
+pair<pair<int, int>, int>
+gcd2(int a, int b);
 
 struct gauss_meta {
     int rank;
@@ -62,6 +80,7 @@ gauss(arma::Mat<int> & mt);
 //  arma::Mat<int> solve(arma::Mat<int> & A);
 arma::Mat<int> solve_fsr(arma::Mat<int> & A, struct gauss_meta * meta_);
 pair<std::vector<int>, int> gcd(const std::vector<int> ar);
+bool is_diagonal(arma::Mat<int> & A);
 
 #endif //GAUSS_LINALG_H_H
 

@@ -37,4 +37,5 @@ int main3() {
     for (auto & it : s)
         it.print("");
     cout << s.size();
+    return 0;
 }
