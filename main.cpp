@@ -331,7 +331,7 @@ void run(const char * ROOT_SYS_NAME) {
             //res.print("ans");
             final.insert(res);
             final.insert(-res);
-            saver.save(res); res = -res; saver.save(res);
+            //  saver.save(res); res = -res; saver.save(res);
             if (final.size() % 1000000 == 0)
                 cout << "final SIZE: " << final.size();
         }
@@ -350,6 +350,9 @@ void run(const char * ROOT_SYS_NAME) {
 std::pair<std::pair<int, int>, int> StaticGCD::pregcd[_GCD_RANGE][_GCD_RANGE];
 int main(int argc, char ** argv)
 {
+    const char * name = "e6";
+    if (argc > 1)
+        name = argv[1];
     // config logging
     // freopen("logging.txt", "w", stdout);
     StaticGCD::init();
