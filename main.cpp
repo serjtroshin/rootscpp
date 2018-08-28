@@ -279,6 +279,14 @@ public:
         }
         fout << '\n';
     }
+    void save(const std::set<arma::Mat<int>, cmp> & s ) {
+        for (auto & it : s) {
+            for (int i = 0; i < (int)it.n_cols; i++) {
+                fout << it(i) << ' ';
+            }
+            fout << '\n';
+        }
+    }
 private:
     std::ofstream fout;
 };
@@ -292,11 +300,27 @@ void run(const char * ROOT_SYS_NAME) {
     get_data(ROOT_SYS_NAME, &kartan, &weights, &gramm);
     auto s = make_S(weights, kartan);
     std::cout << "S size: " << s.size() << '\n';
+    for (auto & it : s) {
+        arma::Mat<int> mit = -it;
+        if (s.find(mit) == s.end()) {
+            it.print("it");
+        }
+    }
     // -----------------
     // update by Авдеев Р.C.
     // reduce S
-    s = reduce(s);
-    std::cout << "reduced size of S: " << s.size() << '\n';
+    auto s_reduced = reduce(s);
+    std::cout << "reduced size of S: " << s_reduced.size() << '\n';
+    /*for (auto & it : s_reduced) {
+        arma::Mat<int> mit = -it;
+        if (s_reduced.find(mit) == s_reduced.end()) {
+            it.print("not in reduced");
+            if (s.find(mit) == s.end()) {
+                it.print("not in s");
+            }
+        }
+    }*/
+    s = s_reduced;
     test_orbit_size(ROOT_SYS_NAME, weights, kartan);
     int rank = kartan.n_cols - 1;
     long long to_solve = how_many_to_solve(rank, s.size());
@@ -345,17 +369,19 @@ void run(const char * ROOT_SYS_NAME) {
     clock_t end = clock();
     double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
     cout << "Finished TIME secs: " << elapsed_secs << '\n';
+    saver.save(final_s);
+    cout << "\nsaved\n";
 }
 
 std::pair<std::pair<int, int>, int> StaticGCD::pregcd[_GCD_RANGE][_GCD_RANGE];
 int main(int argc, char ** argv)
 {
-    const char * name = "e6";
+    const char * name = "f4";
     if (argc > 1)
         name = argv[1];
     // config logging
     // freopen("logging.txt", "w", stdout);
     StaticGCD::init();
     //arma::Mat<int> gramm = {{4, -2, 0, 0}, {-2, 4, -2, 0}, {0, -2, 2, -1}, {0, 0, -1, 2}};
-    run("e6");
+    run(name);
 }
