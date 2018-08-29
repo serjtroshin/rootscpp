@@ -267,8 +267,9 @@ private:
 
 class Saver {
 public:
-    Saver(const char * filename) {
-        fout.open(filename);
+    Saver(const char * filename, const char * add="") {
+        std::string s = std::string(filename) + std::string(add);
+        fout.open(s);
     }
     ~Saver() {
         fout.close();
@@ -309,6 +310,7 @@ void run(const char * ROOT_SYS_NAME) {
     // -----------------
     // update by Авдеев Р.C.
     // reduce S
+    Saver(ROOT_SYS_NAME, ".set").save(s);
     auto s_reduced = reduce(s);
     std::cout << "reduced size of S: " << s_reduced.size() << '\n';
     /*for (auto & it : s_reduced) {
@@ -320,6 +322,7 @@ void run(const char * ROOT_SYS_NAME) {
             }
         }
     }*/
+    Saver(ROOT_SYS_NAME, ".set_reduced").save(s_reduced);
     s = s_reduced;
     test_orbit_size(ROOT_SYS_NAME, weights, kartan);
     int rank = kartan.n_cols - 1;
