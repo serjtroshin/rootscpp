@@ -33,10 +33,13 @@ arma::Mat<int> load(std::string file, std::string ROOT_SYS_NAME) {
     while (std::getline(f, s)) {
         if (s == ROOT_SYS_NAME) {
             std::getline(f, s);
+            f.close();
             return arma::Mat<int>(s);
         }
     }
     f.close();
+    std::cerr << "load error: not found in file " << file;
+    exit(1);
     return arma::Mat<int>(s);
 }
 
@@ -323,6 +326,7 @@ void run(const char * ROOT_SYS_NAME) {
         }
     }*/
     Saver(ROOT_SYS_NAME, ".set_reduced").save(s_reduced);
+    /* LET'S make it all way faster */
     s = s_reduced;
     test_orbit_size(ROOT_SYS_NAME, weights, kartan);
     int rank = kartan.n_cols - 1;
